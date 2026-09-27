@@ -1,0 +1,12 @@
+{
+  "name": "bank-pin-security",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker vault that serves a bank PIN and pushTAN behind a confirmation-ID unlock.",
+  "scripts": {
+    "test": "node test/vault.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
