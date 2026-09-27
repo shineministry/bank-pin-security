@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow,noarchive,noimageindex">
+<meta name="color-scheme" content="dark">
+<title>Vault &middot; PIN &amp; pushTAN</title>
+<style nonce="dev">
+:root{
+  color-scheme:dark;
+  --bg:#0a0d11; --fg:#e6edf3; --muted:#8b98a5; --card:#11161d;
+  --line:#1e2732; --acc:#5b9dff; --danger:#ff6b6b; --ok:#3fb950;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--fg);min-height:100vh;
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:780px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:17px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;margin:0}
+.sub{color:var(--muted);font-size:13px;margin:6px 0 0}
+[hidden]{display:none !important}
+
+/* ---- unlock panes ---- */
+.lock{max-width:400px;margin:10vh auto 0;padding:26px 22px;background:var(--card);
+  border:1px solid var(--line);border-radius:14px}
+.lock h1{letter-spacing:.2em;text-align:center}
+.lock .sub{text-align:center;margin-bottom:22px}
+label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:7px}
+.fg+.fg{margin-top:16px}
+.field{display:flex;gap:8px}
+input,select{
+  width:100%;background:#080b0f;color:var(--fg);border:1px solid var(--line);
+  border-radius:9px;padding:11px 12px;font-size:15px;font-family:inherit;
+  outline:none;transition:border-color .15s
+}
+input:focus,select:focus{border-color:var(--acc)}
+input[type=password]{letter-spacing:.16em}
+input[aria-invalid="true"]{border-color:var(--danger)}
+button{
+  font:inherit;font-size:13px;cursor:pointer;border:1px solid var(--line);
+  background:#161d26;color:var(--fg);border-radius:9px;padding:9px 13px;
+  transition:background .12s,border-color .12s;white-space:nowrap
+}
+button:hover{background:#1d2732;border-color:#2c3947}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:disabled{opacity:.55;cursor:not-allowed}
+button.primary{background:var(--acc);border-color:var(--acc);color:#04121f;font-weight:650}
+button.primary:hover{background:#7cb1ff}
+button.ghost{background:transparent}
+button.danger{color:var(--danger);border-color:#3a2020}
+button.danger:hover{background:#231414}
+button.icon{padding:9px 11px}
+.eyebtn{flex:0 0 auto}
+.btn-row{display:flex;gap:9px;margin-top:20px}
+.btn-row button{flex:1}
+.msg{min-height:20px;font-size:13px;margin:12px 0 0;color:var(--danger)}
+.msg.ok{color:var(--ok)}
+.hint{font-size:12px;color:var(--muted);margin:14px 0 0;text-align:center}
+.warn{margin-top:16px;padding:10px 12px;border:1px solid #4a3a12;background:#1d1708;
+  color:#f0d58a;border-radius:9px;font-size:13px}
+
+/* ---- app ---- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding-bottom:16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top .brand{display:flex;align-items:baseline;gap:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.clock{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.clock.hot{color:var(--danger)}
+.status{min-height:20px;font-size:13px;margin:14px 0 0;color:var(--ok)}
+.status.err{color:var(--danger)}
+
+.editor{margin-top:18px;padding:16px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px}
+.editor .grid{display:grid;grid-template-columns:1fr 150px;gap:10px}
+.editor .grid .full{grid-column:1/-1}
+.editor .acts{display:flex;gap:9px;margin-top:14px}
+
+.list{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+.item.pinned{border-color:#24344a}
+.meta{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.label{font-weight:600;word-break:break-word}
+.tag{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+  border:1px solid var(--line);border-radius:99px;padding:3px 9px;flex:0 0 auto}
+.tag.ro{color:#9fb3c8;border-color:#24344a}
+.valrow{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:11px;flex-wrap:wrap}
+.val{font-family:var(--mono);font-size:17px;letter-spacing:.2em;background:#080b0f;
+  border:1px solid var(--line);border-radius:8px;padding:8px 12px;flex:1 1 140px;
+  min-width:0;word-break:break-all;user-select:all}
+.val.shown{letter-spacing:.08em}
+.rowacts{display:flex;gap:7px;flex-wrap:wrap}
+.empty{margin-top:34px;color:var(--muted);text-align:center;font-size:14px}
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:12px;line-height:1.7}
+.foot code{font-family:var(--mono);color:#9fb3c8}
+@media (max-width:560px){
+  .editor .grid{grid-template-columns:1fr}
+  .val{flex:1 1 100%}
+}
+</style>
+</head>
+<body>
+
+<!-- ========================= STEP 1: GATE ========================= -->
+<main class="wrap" id="lockView">
+  <section class="lock" id="gatePane">
+    <h1>Vault</h1>
+    <p class="sub">Step 1 of 2 &middot; Confirm your details</p>
+
+    <form id="gateForm" autocomplete="off" novalidate>
+      <div class="fg">
+        <label for="gName">Full name</label>
+        <input id="gName" name="name" type="text" placeholder="Shineil Mathias"
+               autocomplete="name" autocapitalize="words" autocorrect="off" spellcheck="false"
+               maxlength="80" required>
+      </div>
+      <div class="fg">
+        <label for="gEmail">E-mail</label>
+        <input id="gEmail" name="email" type="email" placeholder="you@example.com"
+               autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false"
+               maxlength="120" required>
+      </div>
+      <div class="fg">
+        <label for="gDob">Date of birth</label>
+        <input id="gDob" name="dob" type="text" placeholder="YYYY-MM-DD"
+               autocomplete="bday" inputmode="numeric" autocapitalize="off"
+               autocorrect="off" spellcheck="false" maxlength="10" required>
+      </div>
+      <div class="fg">
+        <label for="gId">Confirmation ID given by Shineil</label>
+        <div class="field">
+          <input id="gId" name="confirmationId" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                 maxlength="64" required>
+          <button type="button" class="icon eyebtn" id="gIdToggle" aria-label="Show confirmation ID">Show</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="primary" id="gateBtn">Continue</button>
+      </div>
+      <p class="msg" id="gateMsg" role="alert" aria-live="polite"></p>
+    </form>
+
+    <p class="warn" id="insecureWarn" hidden>
+      This page is not running over HTTPS. Do not enter your details.
+    </p>
+  </section>
+
+  <!-- ======================= STEP 2: PASSWORD ======================= -->
+  <section class="lock" id="passPane" hidden>
+    <h1>Vault</h1>
+    <p class="sub">Step 2 of 2 &middot; Master password</p>
+
+    <form id="loginForm" autocomplete="off" novalidate>
+      <div class="fg">
+        <label for="pw">Master password</label>
+        <div class="field">
+          <input id="pw" name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                 autocomplete="current-password" autocapitalize="off" autocorrect="off"
+                 spellcheck="false" maxlength="200" required>
+          <button type="button" class="icon eyebtn" id="pwToggle" aria-label="Show password">Show</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button type="submit" class="primary" id="unlockBtn">Unlock</button>
+      </div>
+      <p class="msg" id="loginMsg" role="alert" aria-live="polite"></p>
+    </form>
+
+    <p class="hint" id="backHint" hidden>
+      <a href="#" id="backToGate" style="color:#8b98a5">&larr; Change details</a>
+    </p>
+  </section>
+</main>
+
+<!-- ============================= APP ============================= -->
+<main class="wrap" id="appView" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1>Vault</h1>
+      <span class="clock" id="clock">--:--</span>
+    </div>
+    <div class="actions">
+      <button type="button" id="addBtn">Add entry</button>
+      <button type="button" id="lockBtn">Lock</button>
+      <button type="button" id="signOutBtn" class="danger">Sign out</button>
+    </div>
+  </header>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <form class="editor" id="editor" hidden autocomplete="off" novalidate>
+    <div class="grid">
+      <input id="fLabel" type="text" placeholder="Label (e.g. savings account)"
+             maxlength="64" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+      <select id="fKind" aria-label="Type">
+        <option value="pin">PIN</option>
+        <option value="pushtan">pushTAN</option>
+        <option value="note">Note</option>
+      </select>
+      <div class="field full">
+        <input id="fValue" type="password" placeholder="Value" maxlength="256"
+               autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+               inputmode="numeric" required>
+        <button type="button" class="icon eyebtn" id="fValueToggle" aria-label="Show value">Show</button>
+      </div>
+    </div>
+    <div class="acts">
+      <button type="submit" class="primary">Save</button>
+      <button type="button" class="ghost" id="cancelBtn">Cancel</button>
+    </div>
+    <p class="msg" id="editorMsg" role="alert"></p>
+  </form>
+
+  <ul class="list" id="list"></ul>
+  <p class="empty" id="empty" hidden>No entries yet. Use <strong>Add entry</strong>.</p>
+
+  <footer class="foot">
+    Values are held in memory only and are never written to
+    <code>localStorage</code>, <code>sessionStorage</code>, cookies or disk.
+    Entries marked <code>worker secret</code> come from encrypted Cloudflare
+    secrets and cannot be edited here. The vault locks itself after 2 minutes
+    of inactivity or when the tab is backgrounded, and copied values are
+    overwritten on the clipboard after 15 seconds.
+  </footer>
+</main>
+
+<script nonce="dev">
+(function () {
+  "use strict";
+
+  var IDLE_MS = 120000;      // auto-lock after inactivity
+  var HIDDEN_MS = 15000;     // auto-lock when tab is backgrounded
+  var REMASK_MS = 10000;     // re-mask a revealed value
+  var COPY_CLEAR_MS = 15000; // overwrite clipboard after copy
+  var MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var lockView = $("lockView"), appView = $("appView");
+  var gatePane = $("gatePane"), passPane = $("passPane");
+  var gateForm = $("gateForm"), gateBtn = $("gateBtn"), gateMsg = $("gateMsg");
+  var gName = $("gName"), gEmail = $("gEmail"), gDob = $("gDob"), gId = $("gId");
+  var loginForm = $("loginForm"), pw = $("pw"), loginMsg = $("loginMsg"), unlockBtn = $("unlockBtn");
+  var backHint = $("backHint");
+  var list = $("list"), empty = $("empty"), statusEl = $("status"), clock = $("clock");
+  var editor = $("editor"), fLabel = $("fLabel"), fKind = $("fKind"), fValue = $("fValue");
+  var editorMsg = $("editorMsg"), addBtn = $("addBtn"), lockBtn = $("lockBtn"), signOutBtn = $("signOutBtn");
+
+  /* Secrets live here and nowhere else. */
+  var entries = [];
+  var editingId = null;
+  var idleTimer = null, hiddenTimer = null, ticker = null;
+  var lockAt = 0;
+  var remaskTimers = Object.create(null);
+  var labelTimers = Object.create(null);
+  var clipboardTimer = null;
+  var clipboardClearAt = 0;
+  var unlocked = false;
+
+  /* ---------------------------------------------------------------- utils */
+
+  function say(el, text, isErr) {
+    el.textContent = text || "";
+    el.classList.toggle("err", !!isErr);
+    if (el === statusEl) el.classList.toggle("err", !!isErr);
+  }
+
+  function clearTimers(map) {
+    for (var k in map) { clearTimeout(map[k]); delete map[k]; }
+  }
+
+  function makeError(message, status, code) {
+    var e = new Error(message);
+    e.status = status;
+    e.code = code;
+    return e;
+  }
+
+  async function api(path, method, body) {
+    var opts = {
+      method: method || "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "error",
+      headers: { "X-Requested-With": "vault", "Accept": "application/json" }
+    };
+    if (body !== undefined) {
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    var res = await fetch(path, opts);
+    var data = null;
+    try { data = await res.json(); } catch (e) { /* empty body */ }
+
+    if (!res.ok) {
+      var code = (data && data.error) ? data.error : "";
+      var err = makeError(
+        (data && data.error) ? data.error : "Request failed (" + res.status + ").",
+        res.status, code
+      );
+      // A dropped session while we are on screen: tear the UI down here so the
+      // caller's own catch never has to guess which pane to show.
+      if (unlocked && (
+          res.status === 401 ||
+          (res.status === 403 && code === "gate_required")
+        )) {
+        bail(err);
+      }
+      throw err;
+    }
+    return data;
+  }
+
+  function kindLabel(kind) {
+    if (kind === "pin") return "PIN";
+    if (kind === "pushtan") return "pushTAN";
+    return "Note";
+  }
+
+  function isRevealed(id) { return !!remaskTimers[id]; }
+
+  /* ------------------------------------------------------------- rendering */
+
+  function buildRow(entry) {
+    var li = document.createElement("li");
+    li.className = entry.readonly ? "item pinned" : "item";
+    li.dataset.id = entry.id;
+
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var label = document.createElement("span");
+    label.className = "label";
+    label.textContent = entry.label;
+    var kind = document.createElement("span");
+    kind.className = entry.readonly ? "tag ro" : "tag";
+    kind.textContent = entry.readonly ? "worker secret" : kindLabel(entry.kind);
+    meta.appendChild(label);
+    meta.appendChild(kind);
+
+    var valrow = document.createElement("div");
+    valrow.className = "valrow";
+
+    var code = document.createElement("code");
+    code.className = "val";
+    code.setAttribute("data-role", "value");
+    code.textContent = entry.value ? MASK : "\u2014";
+    code.setAttribute("aria-label", "Value, masked");
+
+    var rowacts = document.createElement("div");
+    rowacts.className = "rowacts";
+
+    var reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.dataset.act = "reveal";
+    reveal.textContent = "Show";
+    reveal.setAttribute("aria-label", "Reveal value for " + entry.label);
+
+    var copy = document.createElement("button");
+    copy.type = "button";
+    copy.dataset.act = "copy";
+    copy.textContent = "Copy";
+
+    rowacts.appendChild(reveal);
+    rowacts.appendChild(copy);
+
+    if (!entry.readonly) {
+      var edit = document.createElement("button");
+      edit.type = "button";
+      edit.dataset.act = "edit";
+      edit.textContent = "Edit";
+      rowacts.appendChild(edit);
+
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "danger";
+      del.dataset.act = "del";
+      del.textContent = "Delete";
+      rowacts.appendChild(del);
+    }
+
+    valrow.appendChild(code);
+    valrow.appendChild(rowacts);
+    li.appendChild(meta);
+    li.appendChild(valrow);
+    return li;
+  }
+
+  function render() {
+    list.replaceChildren();
+    for (var i = 0; i < entries.length; i++) list.appendChild(buildRow(entries[i]));
+    empty.hidden = entries.length !== 0;
+  }
+
+  function findEntry(id) {
+    for (var i = 0; i < entries.length; i++) if (entries[i].id === id) return entries[i];
+    return null;
+  }
+
+  /* ------------------------------------------------------------ reveal/copy */
+
+  function reveal(li, id) {
+    var entry = findEntry(id);
+    var code = li.querySelector('[data-role="value"]');
+    var btn = li.querySelector('[data-act="reveal"]');
+    if (!entry || !code || !btn) return;
+
+    if (isRevealed(id)) {
+      clearTimeout(remaskTimers[id]);
+      delete remaskTimers[id];
+      code.textContent = entry.value ? MASK : "\u2014";
+      code.classList.remove("shown");
+      code.setAttribute("aria-label", "Value, masked");
+      btn.textContent = "Show";
+      return;
+    }
+
+    code.textContent = entry.value || "\u2014";
+    code.classList.add("shown");
+    code.setAttribute("aria-label", "Value, revealed");
+    btn.textContent = "Hide";
+    remaskTimers[id] = setTimeout(function () { reveal(li, id); }, REMASK_MS);
+  }
+
+  /* The clipboard is wiped COPY_CLEAR_MS after a copy. If the document is not
+     focused at that moment (browsers refuse the write) we retry on focus. */
+  function scheduleClipboardClear(deadline) {
+    clipboardClearAt = deadline;
+    clearTimeout(clipboardTimer);
+    clipboardTimer = setTimeout(runClipboardClear, Math.max(0, deadline - Date.now()));
+  }
+
+  function clearClipboardSchedule() {
+    clipboardClearAt = 0;
+    clearTimeout(clipboardTimer);
+    clipboardTimer = null;
+  }
+
+  async function runClipboardClear() {
+    if (!clipboardClearAt) return;
+    if (Date.now() < clipboardClearAt) {
+      clipboardTimer = setTimeout(runClipboardClear, clipboardClearAt - Date.now());
+      return;
+    }
+    if (!document.hasFocus()) {
+      clipboardTimer = setTimeout(runClipboardClear, 2000);
+      return;
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText("");
+      }
+    } catch (e) { /* clipboard may be unavailable */ }
+    clearClipboardSchedule();
+  }
+
+  async function copyValue(id, btn) {
+    var entry = findEntry(id);
+    if (!entry) return;
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      say(statusEl, "Clipboard API unavailable in this browser.", true);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(entry.value);
+    } catch (e) {
+      say(statusEl, "Copy blocked by the browser.", true);
+      return;
+    }
+
+    btn.textContent = "Copied";
+    say(statusEl, "Copied \u2014 clipboard clears in 15s.", false);
+
+    clearTimeout(labelTimers[id]);
+    labelTimers[id] = setTimeout(function () {
+      if (btn.isConnected && btn.textContent === "Copied") btn.textContent = "Copy";
+      delete labelTimers[id];
+    }, COPY_CLEAR_MS);
+
+    scheduleClipboardClear(Date.now() + COPY_CLEAR_MS);
+  }
+
+  /* ------------------------------------------------------------------ vault */
+
+  async function persist() {
+    await api("/api/vault", "PUT", { entries: entries });
+  }
+
+  async function refresh() {
+    var data = await api("/api/vault", "GET");
+    entries = Array.isArray(data.entries) ? data.entries : [];
+    render();
+  }
+
+  function syncValueInput() {
+    var pin = fKind.value === "pin";
+    fValue.setAttribute("inputmode", pin ? "numeric" : "text");
+    fValue.setAttribute("maxlength", pin ? "12" : "256");
+  }
+
+  function openEditor(entry) {
+    editingId = entry ? entry.id : null;
+    fLabel.value = entry ? entry.label : "";
+    fKind.value = entry ? entry.kind : "pin";
+    fValue.value = entry ? entry.value : "";
+    fValue.type = "password";
+    syncValueInput();
+    $("fValueToggle").textContent = "Show";
+    editorMsg.textContent = "";
+    editor.hidden = false;
+    fLabel.focus();
+  }
+
+  function closeEditor() {
+    editor.hidden = true;
+    editingId = null;
+    fLabel.value = "";
+    fValue.value = "";
+    editorMsg.textContent = "";
+  }
+
+  /* ----------------------------------------------------------- pane control */
+
+  function stopIdle() {
+    clearTimeout(idleTimer);
+    clearTimeout(hiddenTimer);
+    if (ticker) { clearInterval(ticker); ticker = null; }
+    clock.textContent = "--:--";
+    clock.classList.remove("hot");
+  }
+
+  function armIdle() {
+    if (!unlocked) return;
+    clearTimeout(idleTimer);
+    lockAt = Date.now() + IDLE_MS;
+    idleTimer = setTimeout(function () { lockNow("Locked after inactivity."); }, IDLE_MS);
+    if (!ticker) {
+      ticker = setInterval(function () {
+        var left = Math.max(0, lockAt - Date.now());
+        var m = Math.floor(left / 60000);
+        var s = Math.floor((left % 60000) / 1000);
+        clock.textContent = m + ":" + (s < 10 ? "0" : "") + s;
+        clock.classList.toggle("hot", left < 30000);
+      }, 1000);
+    }
+  }
+
+  function wipeMemory() {
+    clearTimers(remaskTimers);
+    clearTimers(labelTimers);
+    if (clipboardClearAt) {
+      // Try to clear right away; runClipboardClear retries until it succeeds.
+      clearTimeout(clipboardTimer);
+      runClipboardClear();
+    }
+    entries = [];
+    editingId = null;
+    try { list.replaceChildren(); } catch (e) { /* noop */ }
+    fLabel.value = "";
+    fValue.value = "";
+    pw.value = "";
+    closeEditorSilently();
+  }
+
+  function closeEditorSilently() {
+    editor.hidden = true;
+    editorMsg.textContent = "";
+  }
+
+  function showGate(message) {
+    unlocked = false;
+    stopIdle();
+    lockView.hidden = false;
+    appView.hidden = true;
+    gatePane.hidden = false;
+    passPane.hidden = true;
+    backHint.hidden = true;
+    gateMsg.textContent = message || "";
+    gateMsg.classList.remove("ok");
+    pw.value = "";
+    setTimeout(function () { gName.focus(); }, 30);
+  }
+
+  function showPass(message) {
+    unlocked = false;
+    stopIdle();
+    lockView.hidden = false;
+    appView.hidden = true;
+    gatePane.hidden = true;
+    passPane.hidden = false;
+    backHint.hidden = false;
+    loginMsg.textContent = message || "";
+    loginMsg.classList.remove("ok");
+    setTimeout(function () { pw.focus(); }, 30);
+  }
+
+  function bail(err) {
+    wipeMemory();
+    if (err && err.code === "gate_required") showGate(err.message || "Session expired.");
+    else showPass(err.message || "Session expired.");
+  }
+
+  function lockNow(reason) {
+    unlocked = false;
+    stopIdle();
+    wipeMemory();
+    showPass(reason || "");
+  }
+
+  async function enterApp() {
+    unlocked = true;
+    lockView.hidden = true;
+    appView.hidden = false;
+    statusEl.textContent = "";
+    closeEditorSilently();
+    try {
+      await refresh();
+      armIdle();
+    } catch (e) {
+      if (!unlocked) return;
+      say(statusEl, e.message, true);
+      armIdle();
+    }
+  }
+
+  /** After the gate succeeds: straight in if the vault session is still alive. */
+  async function afterGate() {
+    try {
+      await refresh();
+      unlocked = true;
+      lockView.hidden = true;
+      appView.hidden = false;
+      statusEl.textContent = "";
+      armIdle();
+    } catch (e) {
+      if (e.code === "gate_required") showGate(e.message);
+      else showPass("");
+    }
+  }
+
+  /* --------------------------------------------------------- unlock flows */
+
+  gateForm.addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    gateBtn.disabled = true;
+    gateMsg.textContent = "Checking\u2026";
+    gateMsg.classList.remove("ok");
+    try {
+      await api("/api/gate", "POST", {
+        name: gName.value,
+        email: gEmail.value,
+        dob: gDob.value,
+        confirmationId: gId.value
+      });
+      gId.value = "";
+      gateMsg.textContent = "";
+      await afterGate();
+    } catch (e) {
+      gateMsg.textContent = e.message;
+      gId.setAttribute("aria-invalid", "true");
+      setTimeout(function () { gId.removeAttribute("aria-invalid"); }, 60);
+      gId.select();
+    } finally {
+      gateBtn.disabled = false;
+    }
+  });
+
+  loginForm.addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    var password = pw.value;
+    if (!password) return;
+    unlockBtn.disabled = true;
+    loginMsg.textContent = "Checking\u2026";
+    loginMsg.classList.remove("ok");
+    try {
+      await api("/api/login", "POST", { password: password });
+      pw.value = "";
+      loginMsg.textContent = "";
+      await enterApp();
+    } catch (e) {
+      if (e.code === "gate_required") showGate(e.message);
+      else {
+        loginMsg.textContent = e.message;
+        pw.select();
+      }
+    } finally {
+      unlockBtn.disabled = false;
+    }
+  });
+
+  $("backToGate").addEventListener("click", function (ev) {
+    ev.preventDefault();
+    showGate("");
+  });
+
+  $("pwToggle").addEventListener("click", function () {
+    var shown = pw.type === "text";
+    pw.type = shown ? "password" : "text";
+    this.textContent = shown ? "Show" : "Hide";
+    this.setAttribute("aria-label", shown ? "Show password" : "Hide password");
+  });
+
+  $("gIdToggle").addEventListener("click", function () {
+    var shown = gId.type === "text";
+    gId.type = shown ? "password" : "text";
+    this.textContent = shown ? "Show" : "Hide";
+  });
+
+  $("fValueToggle").addEventListener("click", function () {
+    var shown = fValue.type === "text";
+    fValue.type = shown ? "password" : "text";
+    this.textContent = shown ? "Show" : "Hide";
+  });
+
+  fKind.addEventListener("change", syncValueInput);
+
+  /* ------------------------------------------------------------- app events */
+
+  addBtn.addEventListener("click", function () { openEditor(null); });
+  $("cancelBtn").addEventListener("click", closeEditor);
+
+  lockBtn.addEventListener("click", function () { lockNow("Locked."); });
+
+  signOutBtn.addEventListener("click", async function () {
+    try { await api("/api/logout", "POST", {}); } catch (e) { /* still lock locally */ }
+    unlocked = false;
+    stopIdle();
+    wipeMemory();
+    showGate("Signed out.");
+  });
+
+  editor.addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    var label = fLabel.value.trim();
+    var kind = fKind.value;
+    var value = fValue.value;
+    editorMsg.textContent = "";
+
+    if (!label) { editorMsg.textContent = "Label is required."; return; }
+    if (kind === "pin" && !/^\d{4,12}$/.test(value)) {
+      editorMsg.textContent = "A PIN must be 4-12 digits.";
+      return;
+    }
+    if (kind === "pushtan" && value.length < 4) {
+      editorMsg.textContent = "pushTAN value is too short.";
+      return;
+    }
+    if (value.length > 256) { editorMsg.textContent = "Value is too long."; return; }
+
+    var next;
+    if (editingId) {
+      next = entries.slice();
+      var hit = false;
+      for (var i = 0; i < next.length; i++) {
+        if (next[i].id === editingId) {
+          next[i] = { id: editingId, label: label, kind: kind, value: value, updatedAt: Date.now() };
+          hit = true;
+        }
+      }
+      if (!hit) { editorMsg.textContent = "Entry no longer exists."; return; }
+    } else {
+      next = entries.concat([{ id: null, label: label, kind: kind, value: value, updatedAt: Date.now() }]);
+      if (next.length > 200) { editorMsg.textContent = "Entry limit reached."; return; }
+    }
+
+    var previous = entries;
+    entries = next;
+    try {
+      await persist();
+      await refresh();
+      closeEditor();
+      say(statusEl, "Saved.", false);
+    } catch (e) {
+      entries = previous;
+      editorMsg.textContent = e.message;
+    }
+  });
+
+  list.addEventListener("click", async function (ev) {
+    var btn = ev.target.closest ? ev.target.closest("button[data-act]") : null;
+    if (!btn) return;
+    var li = btn.closest("li");
+    if (!li || !li.dataset.id) return;
+    var id = li.dataset.id;
+    var act = btn.dataset.act;
+    var entry = findEntry(id);
+    if (!entry) return;
+
+    if (act === "reveal") { reveal(li, id); armIdle(); return; }
+    if (act === "copy") { await copyValue(id, btn); armIdle(); return; }
+
+    if (entry.readonly) return;
+
+    if (act === "edit") { openEditor(entry); return; }
+
+    if (act === "del") {
+      if (!window.confirm('Delete "' + entry.label + '"?')) return;
+      var before = entries;
+      entries = entries.filter(function (e) { return e.id !== id; });
+      try {
+        await persist();
+        await refresh();
+        say(statusEl, "Deleted.", false);
+      } catch (e) {
+        entries = before;
+        say(statusEl, e.message, true);
+      }
+      armIdle();
+    }
+  });
+
+  /* ------------------------------------------------------- idle / lifecycle */
+
+  ["pointerdown", "keydown", "wheel", "touchstart", "input"].forEach(function (type) {
+    document.addEventListener(type, function () { if (unlocked) armIdle(); }, { passive: true, capture: true });
+  });
+
+  document.addEventListener("visibilitychange", function () {
+    if (!unlocked) return;
+    if (document.hidden) {
+      clearTimeout(hiddenTimer);
+      hiddenTimer = setTimeout(function () { lockNow("Locked \u2014 tab was backgrounded."); }, HIDDEN_MS);
+    } else {
+      clearTimeout(hiddenTimer);
+      armIdle();
+    }
+  });
+
+  window.addEventListener("pagehide", function () {
+    unlocked = false;
+    stopIdle();
+    wipeMemory();
+  });
+
+  window.addEventListener("pageshow", function (ev) {
+    if (ev.persisted) lockNow("Locked.");
+  });
+
+  window.addEventListener("focus", function () {
+    if (clipboardClearAt) runClipboardClear();
+  });
+
+  if (!window.isSecureContext) $("insecureWarn").hidden = false;
+
+  /* ---------------------------------------------------------- session probe */
+
+  (async function boot() {
+    try {
+      await refresh();
+      unlocked = true;
+      lockView.hidden = true;
+      appView.hidden = false;
+      armIdle();
+    } catch (e) {
+      if (e.code === "gate_required") showGate("");
+      else showPass("");
+    }
+  })();
+})();
+</script>
+</body>
+</html>
