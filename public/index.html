@@ -26,21 +26,20 @@ h1{font-size:17px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;
 .sub{color:var(--muted);font-size:13px;margin:6px 0 0}
 [hidden]{display:none !important}
 
-/* ---- unlock panes ---- */
-.lock{max-width:400px;margin:10vh auto 0;padding:26px 22px;background:var(--card);
+/* ---- unlock pane ---- */
+.lock{max-width:380px;margin:12vh auto 0;padding:26px 22px;background:var(--card);
   border:1px solid var(--line);border-radius:14px}
 .lock h1{letter-spacing:.2em;text-align:center}
 .lock .sub{text-align:center;margin-bottom:22px}
 label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted);margin-bottom:7px}
-.fg+.fg{margin-top:16px}
 .field{display:flex;gap:8px}
-input,select{
+input{
   width:100%;background:#080b0f;color:var(--fg);border:1px solid var(--line);
   border-radius:9px;padding:11px 12px;font-size:15px;font-family:inherit;
   outline:none;transition:border-color .15s
 }
-input:focus,select:focus{border-color:var(--acc)}
+input:focus{border-color:var(--acc)}
 input[type=password]{letter-spacing:.16em}
 input[aria-invalid="true"]{border-color:var(--danger)}
 button{
@@ -62,7 +61,6 @@ button.icon{padding:9px 11px}
 .btn-row button{flex:1}
 .msg{min-height:20px;font-size:13px;margin:12px 0 0;color:var(--danger)}
 .msg.ok{color:var(--ok)}
-.hint{font-size:12px;color:var(--muted);margin:14px 0 0;text-align:center}
 .warn{margin-top:16px;padding:10px 12px;border:1px solid #4a3a12;background:#1d1708;
   color:#f0d58a;border-radius:9px;font-size:13px}
 
@@ -81,6 +79,12 @@ button.icon{padding:9px 11px}
 .editor .grid{display:grid;grid-template-columns:1fr 150px;gap:10px}
 .editor .grid .full{grid-column:1/-1}
 .editor .acts{display:flex;gap:9px;margin-top:14px}
+select{
+  width:100%;background:#080b0f;color:var(--fg);border:1px solid var(--line);
+  border-radius:9px;padding:11px 12px;font-size:15px;font-family:inherit;
+  outline:none;transition:border-color .15s
+}
+select:focus{border-color:var(--acc)}
 
 .list{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
 .item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 15px}
@@ -109,74 +113,29 @@ button.icon{padding:9px 11px}
 </head>
 <body>
 
-<!-- ========================= STEP 1: GATE ========================= -->
+<!-- ============================ UNLOCK ============================ -->
 <main class="wrap" id="lockView">
-  <section class="lock" id="gatePane">
+  <section class="lock" id="unlockPane">
     <h1>Vault</h1>
-    <p class="sub">Step 1 of 2 &middot; Confirm your details</p>
+    <p class="sub">Debit card PIN &amp; pushTAN</p>
 
-    <form id="gateForm" autocomplete="off" novalidate>
-      <div class="fg">
-        <label for="gName">Full name</label>
-        <input id="gName" name="name" type="text" placeholder="Shineil Mathias"
-               autocomplete="name" autocapitalize="words" autocorrect="off" spellcheck="false"
-               maxlength="80" required>
-      </div>
-      <div class="fg">
-        <label for="gEmail">E-mail</label>
-        <input id="gEmail" name="email" type="email" placeholder="you@example.com"
-               autocomplete="email" autocapitalize="off" autocorrect="off" spellcheck="false"
-               maxlength="120" required>
-      </div>
-      <div class="fg">
-        <label for="gDob">Date of birth</label>
-        <input id="gDob" name="dob" type="text" placeholder="YYYY-MM-DD"
-               autocomplete="bday" inputmode="numeric" autocapitalize="off"
-               autocorrect="off" spellcheck="false" maxlength="10" required>
-      </div>
-      <div class="fg">
-        <label for="gId">Confirmation ID given by Shineil</label>
-        <div class="field">
-          <input id="gId" name="confirmationId" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
-                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-                 maxlength="64" required>
-          <button type="button" class="icon eyebtn" id="gIdToggle" aria-label="Show confirmation ID">Show</button>
-        </div>
-      </div>
-      <div class="btn-row">
-        <button type="submit" class="primary" id="gateBtn">Continue</button>
-      </div>
-      <p class="msg" id="gateMsg" role="alert" aria-live="polite"></p>
-    </form>
-
-    <p class="warn" id="insecureWarn" hidden>
-      This page is not running over HTTPS. Do not enter your details.
-    </p>
-  </section>
-
-  <!-- ======================= STEP 2: PASSWORD ======================= -->
-  <section class="lock" id="passPane" hidden>
-    <h1>Vault</h1>
-    <p class="sub">Step 2 of 2 &middot; Master password</p>
-
-    <form id="loginForm" autocomplete="off" novalidate>
-      <div class="fg">
-        <label for="pw">Master password</label>
-        <div class="field">
-          <input id="pw" name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
-                 autocomplete="current-password" autocapitalize="off" autocorrect="off"
-                 spellcheck="false" maxlength="200" required>
-          <button type="button" class="icon eyebtn" id="pwToggle" aria-label="Show password">Show</button>
-        </div>
+    <form id="unlockForm" autocomplete="off" novalidate>
+      <label for="cid">Confirmation ID given by Shineil</label>
+      <div class="field">
+        <input id="cid" name="confirmationId" type="password"
+               placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+               autocomplete="off" autocapitalize="off" autocorrect="off"
+               spellcheck="false" maxlength="64" required>
+        <button type="button" class="icon eyebtn" id="cidToggle" aria-label="Show confirmation ID">Show</button>
       </div>
       <div class="btn-row">
         <button type="submit" class="primary" id="unlockBtn">Unlock</button>
       </div>
-      <p class="msg" id="loginMsg" role="alert" aria-live="polite"></p>
+      <p class="msg" id="unlockMsg" role="alert" aria-live="polite"></p>
     </form>
 
-    <p class="hint" id="backHint" hidden>
-      <a href="#" id="backToGate" style="color:#8b98a5">&larr; Change details</a>
+    <p class="warn" id="insecureWarn" hidden>
+      This page is not running over HTTPS. Do not enter your confirmation ID.
     </p>
   </section>
 </main>
@@ -191,7 +150,6 @@ button.icon{padding:9px 11px}
     <div class="actions">
       <button type="button" id="addBtn">Add entry</button>
       <button type="button" id="lockBtn">Lock</button>
-      <button type="button" id="signOutBtn" class="danger">Sign out</button>
     </div>
   </header>
 
@@ -227,9 +185,10 @@ button.icon{padding:9px 11px}
     Values are held in memory only and are never written to
     <code>localStorage</code>, <code>sessionStorage</code>, cookies or disk.
     Entries marked <code>worker secret</code> come from encrypted Cloudflare
-    secrets and cannot be edited here. The vault locks itself after 2 minutes
-    of inactivity or when the tab is backgrounded, and copied values are
-    overwritten on the clipboard after 15 seconds.
+    secrets and cannot be edited here. Locking invalidates the session on the
+    server, the vault re-locks after 2 minutes of inactivity or when the tab is
+    backgrounded, and copied values are overwritten on the clipboard after
+    15 seconds.
   </footer>
 </main>
 
@@ -246,14 +205,11 @@ button.icon{padding:9px 11px}
   var $ = function (id) { return document.getElementById(id); };
 
   var lockView = $("lockView"), appView = $("appView");
-  var gatePane = $("gatePane"), passPane = $("passPane");
-  var gateForm = $("gateForm"), gateBtn = $("gateBtn"), gateMsg = $("gateMsg");
-  var gName = $("gName"), gEmail = $("gEmail"), gDob = $("gDob"), gId = $("gId");
-  var loginForm = $("loginForm"), pw = $("pw"), loginMsg = $("loginMsg"), unlockBtn = $("unlockBtn");
-  var backHint = $("backHint");
+  var unlockForm = $("unlockForm"), unlockBtn = $("unlockBtn"), unlockMsg = $("unlockMsg");
+  var cid = $("cid");
   var list = $("list"), empty = $("empty"), statusEl = $("status"), clock = $("clock");
   var editor = $("editor"), fLabel = $("fLabel"), fKind = $("fKind"), fValue = $("fValue");
-  var editorMsg = $("editorMsg"), addBtn = $("addBtn"), lockBtn = $("lockBtn"), signOutBtn = $("signOutBtn");
+  var editorMsg = $("editorMsg"), addBtn = $("addBtn"), lockBtn = $("lockBtn");
 
   /* Secrets live here and nowhere else. */
   var entries = [];
@@ -285,6 +241,18 @@ button.icon{padding:9px 11px}
     return e;
   }
 
+  function post(path, body) {
+    return fetch(path, {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      redirect: "error",
+      keepalive: true,
+      headers: { "Content-Type": "application/json", "X-Requested-With": "vault", "Accept": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }
+
   async function api(path, method, body) {
     var opts = {
       method: method || "GET",
@@ -307,14 +275,9 @@ button.icon{padding:9px 11px}
         (data && data.error) ? data.error : "Request failed (" + res.status + ").",
         res.status, code
       );
-      // A dropped session while we are on screen: tear the UI down here so the
-      // caller's own catch never has to guess which pane to show.
-      if (unlocked && (
-          res.status === 401 ||
-          (res.status === 403 && code === "gate_required")
-        )) {
-        bail(err);
-      }
+      // Session dropped while we are on screen: tear the UI down here so the
+      // caller's own catch never has to guess what to show.
+      if (unlocked && res.status === 401) bail(err);
       throw err;
     }
     return data;
@@ -566,7 +529,6 @@ button.icon{padding:9px 11px}
     try { list.replaceChildren(); } catch (e) { /* noop */ }
     fLabel.value = "";
     fValue.value = "";
-    pw.value = "";
     closeEditorSilently();
   }
 
@@ -575,44 +537,29 @@ button.icon{padding:9px 11px}
     editorMsg.textContent = "";
   }
 
-  function showGate(message) {
+  function showUnlock(message) {
     unlocked = false;
     stopIdle();
     lockView.hidden = false;
     appView.hidden = true;
-    gatePane.hidden = false;
-    passPane.hidden = true;
-    backHint.hidden = true;
-    gateMsg.textContent = message || "";
-    gateMsg.classList.remove("ok");
-    pw.value = "";
-    setTimeout(function () { gName.focus(); }, 30);
+    unlockMsg.textContent = message || "";
+    unlockMsg.classList.remove("ok");
+    cid.value = "";
+    setTimeout(function () { cid.focus(); }, 30);
   }
 
-  function showPass(message) {
+  /** End the server session too - the confirmation ID is the only credential. */
+  async function lockNow(reason) {
     unlocked = false;
     stopIdle();
-    lockView.hidden = false;
-    appView.hidden = true;
-    gatePane.hidden = true;
-    passPane.hidden = false;
-    backHint.hidden = false;
-    loginMsg.textContent = message || "";
-    loginMsg.classList.remove("ok");
-    setTimeout(function () { pw.focus(); }, 30);
+    wipeMemory();
+    try { await post("/api/logout", {}); } catch (e) { /* already gone */ }
+    showUnlock(reason || "");
   }
 
   function bail(err) {
     wipeMemory();
-    if (err && err.code === "gate_required") showGate(err.message || "Session expired.");
-    else showPass(err.message || "Session expired.");
-  }
-
-  function lockNow(reason) {
-    unlocked = false;
-    stopIdle();
-    wipeMemory();
-    showPass(reason || "");
+    showUnlock(err && err.message ? err.message : "Session expired.");
   }
 
   async function enterApp() {
@@ -631,87 +578,41 @@ button.icon{padding:9px 11px}
     }
   }
 
-  /** After the gate succeeds: straight in if the vault session is still alive. */
-  async function afterGate() {
-    try {
-      await refresh();
-      unlocked = true;
-      lockView.hidden = true;
-      appView.hidden = false;
-      statusEl.textContent = "";
-      armIdle();
-    } catch (e) {
-      if (e.code === "gate_required") showGate(e.message);
-      else showPass("");
-    }
-  }
+  /* --------------------------------------------------------- unlock flow */
 
-  /* --------------------------------------------------------- unlock flows */
-
-  gateForm.addEventListener("submit", async function (ev) {
+  unlockForm.addEventListener("submit", async function (ev) {
     ev.preventDefault();
-    gateBtn.disabled = true;
-    gateMsg.textContent = "Checking\u2026";
-    gateMsg.classList.remove("ok");
-    try {
-      await api("/api/gate", "POST", {
-        name: gName.value,
-        email: gEmail.value,
-        dob: gDob.value,
-        confirmationId: gId.value
-      });
-      gId.value = "";
-      gateMsg.textContent = "";
-      await afterGate();
-    } catch (e) {
-      gateMsg.textContent = e.message;
-      gId.setAttribute("aria-invalid", "true");
-      setTimeout(function () { gId.removeAttribute("aria-invalid"); }, 60);
-      gId.select();
-    } finally {
-      gateBtn.disabled = false;
-    }
-  });
-
-  loginForm.addEventListener("submit", async function (ev) {
-    ev.preventDefault();
-    var password = pw.value;
-    if (!password) return;
+    var value = cid.value.trim();
+    if (!value) return;
     unlockBtn.disabled = true;
-    loginMsg.textContent = "Checking\u2026";
-    loginMsg.classList.remove("ok");
+    unlockMsg.textContent = "Checking\u2026";
+    unlockMsg.classList.remove("ok");
     try {
-      await api("/api/login", "POST", { password: password });
-      pw.value = "";
-      loginMsg.textContent = "";
+      var res = await post("/api/unlock", { confirmationId: value });
+      var data = null;
+      try { data = await res.json(); } catch (e) { /* empty body */ }
+      if (!res.ok) throw makeError(
+        (data && data.error) ? data.error : "Request failed (" + res.status + ").",
+        res.status, (data && data.error) ? data.error : ""
+      );
+      cid.value = "";
+      unlockMsg.textContent = "";
       await enterApp();
     } catch (e) {
-      if (e.code === "gate_required") showGate(e.message);
-      else {
-        loginMsg.textContent = e.message;
-        pw.select();
-      }
+      unlockMsg.textContent = e.message;
+      cid.setAttribute("aria-invalid", "true");
+      setTimeout(function () { cid.removeAttribute("aria-invalid"); }, 60);
+      cid.select();
     } finally {
       unlockBtn.disabled = false;
     }
   });
 
-  $("backToGate").addEventListener("click", function (ev) {
-    ev.preventDefault();
-    showGate("");
-  });
-
-  $("pwToggle").addEventListener("click", function () {
-    var shown = pw.type === "text";
-    pw.type = shown ? "password" : "text";
+  $("cidToggle").addEventListener("click", function () {
+    var shown = cid.type === "text";
+    cid.type = shown ? "password" : "text";
     this.textContent = shown ? "Show" : "Hide";
-    this.setAttribute("aria-label", shown ? "Show password" : "Hide password");
-  });
-
-  $("gIdToggle").addEventListener("click", function () {
-    var shown = gId.type === "text";
-    gId.type = shown ? "password" : "text";
-    this.textContent = shown ? "Show" : "Hide";
+    this.setAttribute("aria-label", shown ? "Show confirmation ID" : "Hide confirmation ID");
   });
 
   $("fValueToggle").addEventListener("click", function () {
@@ -728,14 +629,6 @@ button.icon{padding:9px 11px}
   $("cancelBtn").addEventListener("click", closeEditor);
 
   lockBtn.addEventListener("click", function () { lockNow("Locked."); });
-
-  signOutBtn.addEventListener("click", async function () {
-    try { await api("/api/logout", "POST", {}); } catch (e) { /* still lock locally */ }
-    unlocked = false;
-    stopIdle();
-    wipeMemory();
-    showGate("Signed out.");
-  });
 
   editor.addEventListener("submit", async function (ev) {
     ev.preventDefault();
@@ -838,6 +731,8 @@ button.icon{padding:9px 11px}
     unlocked = false;
     stopIdle();
     wipeMemory();
+    // Best effort - the page is going away, keepalive lets it finish.
+    try { post("/api/logout", {}); } catch (e) { /* noop */ }
   });
 
   window.addEventListener("pageshow", function (ev) {
@@ -860,8 +755,7 @@ button.icon{padding:9px 11px}
       appView.hidden = false;
       armIdle();
     } catch (e) {
-      if (e.code === "gate_required") showGate("");
-      else showPass("");
+      showUnlock("");
     }
   })();
 })();

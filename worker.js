@@ -1,22 +1,15 @@
 /* security2 - encrypted PIN / pushTAN vault
  * Cloudflare Worker: static UI + JSON API.
  *
- * Secrets (set with `wrangler secret put NAME`):
- *   AUTH_PASSWORD     master password used to unlock the vault
+ * Secrets (set with `wrangler secret put NAME`, or as encrypted Worker vars):
+ *   CONFIRMATION_ID   the only credential that unlocks the vault
  *   VAULT_KEY         random 32+ byte key used to AES-GCM encrypt data at rest
  *   BANK_PIN          debit card PIN, served read-only to an authenticated session
  *   PUSHTAN           pushTAN value, served read-only to an authenticated session
- *   GATE_NAME         expected full name for step 1 of the unlock
- *   GATE_EMAIL        expected e-mail address
- *   GATE_DOB          expected date of birth (YYYY-MM-DD or DD-MM-YYYY)
- *   CONFIRMATION_ID   confirmation ID issued by Shineil
  */
 
-const GATE_COOKIE = "__Host-gate_sid";
-const VAULT_COOKIE = "__Host-vault_sid";
-
-const GATE_PREFIX = "gsess:";
-const VAULT_PREFIX = "sess:";
+const SESSION_COOKIE = "__Host-vault_sid";
+const SESSION_PREFIX = "sess:";
 
 const SESSION_TTL = 3600; // seconds, sliding
 const ATTEMPT_WINDOW = 900;
@@ -113,8 +106,8 @@ function readCookie(request, name) {
   return null;
 }
 
-function sessionCookie(name, value, maxAge) {
-  return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
+function sessionCookie(value, maxAge) {
+  return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
 }
 
 async function readJson(request) {
@@ -215,17 +208,19 @@ async function unseal(key, blob) {
 
 /* ---------------------------------------------------------- session store */
 
-async function createSession(env, prefix) {
+async function createSession(env) {
   const sid = randomToken(32);
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL;
-  await kvPut(env, prefix + sid, JSON.stringify({ exp }), { expirationTtl: SESSION_TTL + 60 });
+  await kvPut(env, SESSION_PREFIX + sid, JSON.stringify({ exp }), {
+    expirationTtl: SESSION_TTL + 60,
+  });
   return sid;
 }
 
-async function lookupSession(request, env, cookieName, prefix) {
-  const sid = readCookie(request, cookieName);
+async function lookupSession(request, env) {
+  const sid = readCookie(request, SESSION_COOKIE);
   if (!sid || sid.length < 40 || sid.length > 100) return null;
-  const raw = await kvGet(env, prefix + sid);
+  const raw = await kvGet(env, SESSION_PREFIX + sid);
   if (!raw) return null;
 
   let rec;
@@ -237,21 +232,23 @@ async function lookupSession(request, env, cookieName, prefix) {
 
   const now = Math.floor(Date.now() / 1000);
   if (!rec || typeof rec.exp !== "number" || rec.exp <= now) {
-    await kvDel(env, prefix + sid);
+    await kvDel(env, SESSION_PREFIX + sid);
     return null;
   }
 
   // Sliding renewal, throttled to avoid needless writes.
   if (rec.exp - now < SESSION_TTL / 2) {
     rec.exp = now + SESSION_TTL;
-    await kvPut(env, prefix + sid, JSON.stringify(rec), { expirationTtl: SESSION_TTL + 60 });
+    await kvPut(env, SESSION_PREFIX + sid, JSON.stringify(rec), {
+      expirationTtl: SESSION_TTL + 60,
+    });
   }
   return sid;
 }
 
-async function dropSession(request, env, cookieName, prefix) {
-  const sid = readCookie(request, cookieName);
-  if (sid) await kvDel(env, prefix + sid);
+async function dropSession(request, env) {
+  const sid = readCookie(request, SESSION_COOKIE);
+  if (sid) await kvDel(env, SESSION_PREFIX + sid);
 }
 
 /* ------------------------------------------------------------ rate limit */
@@ -287,63 +284,11 @@ async function clearFailures(env, ip) {
   await kvDel(env, `rl:${ip}`);
 }
 
-async function refuse(env, request, message) {
-  const ip = clientIp(request);
-  const locked = await lockUntil(env, ip);
-  if (locked) {
-    const retry = locked - Math.floor(Date.now() / 1000);
-    return json({ error: `Too many attempts. Retry in ${retry}s.` }, 429, {
-      "Retry-After": String(Math.max(retry, 1)),
-    });
-  }
-  await recordFailure(env, ip);
-  return json({ error: message }, 401);
-}
+/* -------------------------------------------------------------- unlock io */
 
-/* --------------------------------------------------------- step 1: gate */
-
-function normText(v) {
-  return String(v === undefined || v === null ? "" : v).trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function normDob(v) {
-  const d = String(v === undefined || v === null ? "" : v).replace(/\D/g, "");
-  if (d.length !== 8) return d;
-  if (/^(19|20)\d{2}/.test(d)) return d; // YYYYMMDD
-  return d.slice(4) + d.slice(2, 4) + d.slice(0, 2); // DDMMYYYY -> YYYYMMDD
-}
-
-function gateConfigured(env) {
-  return Boolean(env.GATE_NAME && env.GATE_EMAIL && env.GATE_DOB && env.CONFIRMATION_ID);
-}
-
-async function gateMatches(env, body) {
-  const expected = {
-    name: normText(env.GATE_NAME),
-    email: normText(env.GATE_EMAIL),
-    dob: normDob(env.GATE_DOB),
-    id: String(env.CONFIRMATION_ID).trim(),
-  };
-  const supplied = {
-    name: normText(body.name),
-    email: normText(body.email),
-    dob: normDob(body.dob),
-    id: String(body.confirmationId === undefined ? "" : body.confirmationId).trim(),
-  };
-  // Every field is always compared so the response time does not reveal
-  // which one was wrong.
-  const results = await Promise.all([
-    safeEqual(supplied.name, expected.name),
-    safeEqual(supplied.email, expected.email),
-    safeEqual(supplied.dob, expected.dob),
-    safeEqual(supplied.id, expected.id),
-  ]);
-  return results.every(Boolean);
-}
-
-async function handleGate(request, env) {
+async function handleUnlock(request, env) {
   if (!sameOrigin(request)) return json({ error: "Forbidden" }, 403);
-  if (!gateConfigured(env)) return json({ error: "Gate not configured" }, 500);
+  if (!env.CONFIRMATION_ID) return json({ error: "Server not configured" }, 500);
 
   const ip = clientIp(request);
   const locked = await lockUntil(env, ip);
@@ -362,58 +307,25 @@ async function handleGate(request, env) {
   }
   if (!body || typeof body !== "object") return json({ error: "Invalid request" }, 400);
 
-  if (!(await gateMatches(env, body))) return refuse(env, request, "Details do not match.");
+  const supplied =
+    typeof body.confirmationId === "string" ? body.confirmationId.trim() : "";
+  const ok = await safeEqual(supplied, String(env.CONFIRMATION_ID).trim());
 
-  await clearFailures(env, ip);
-  const gid = await createSession(env, GATE_PREFIX);
-  return json({ ok: true }, 200, {
-    "Set-Cookie": sessionCookie(GATE_COOKIE, gid, SESSION_TTL),
-  });
-}
-
-/* ------------------------------------------------------- step 2: unlock */
-
-async function handleLogin(request, env) {
-  if (!sameOrigin(request)) return json({ error: "Forbidden" }, 403);
-  if (!env.AUTH_PASSWORD) return json({ error: "Server not configured" }, 500);
-
-  const gate = await lookupSession(request, env, GATE_COOKIE, GATE_PREFIX);
-  if (!gate) return json({ error: "gate_required" }, 403);
-
-  const ip = clientIp(request);
-  const locked = await lockUntil(env, ip);
-  if (locked) {
-    const retry = locked - Math.floor(Date.now() / 1000);
-    return json({ error: `Too many attempts. Retry in ${retry}s.` }, 429, {
-      "Retry-After": String(Math.max(retry, 1)),
-    });
+  if (!ok) {
+    await recordFailure(env, ip);
+    return json({ error: "Incorrect confirmation ID." }, 401);
   }
 
-  let body;
-  try {
-    body = await readJson(request);
-  } catch {
-    return json({ error: "Invalid request" }, 400);
-  }
-
-  const password = typeof body.password === "string" ? body.password : "";
-  const ok = await safeEqual(password, env.AUTH_PASSWORD);
-
-  if (!ok) return refuse(env, request, "Invalid password");
-
   await clearFailures(env, ip);
-  const sid = await createSession(env, VAULT_PREFIX);
-  return json({ ok: true }, 200, {
-    "Set-Cookie": sessionCookie(VAULT_COOKIE, sid, SESSION_TTL),
-  });
+  const sid = await createSession(env);
+  return json({ ok: true }, 200, { "Set-Cookie": sessionCookie(sid, SESSION_TTL) });
 }
 
 async function handleLogout(request, env) {
   if (!sameOrigin(request)) return json({ error: "Forbidden" }, 403);
-  await dropSession(request, env, VAULT_COOKIE, VAULT_PREFIX);
-  await dropSession(request, env, GATE_COOKIE, GATE_PREFIX);
+  await dropSession(request, env);
   return json({ ok: true }, 200, {
-    "Set-Cookie": [sessionCookie(VAULT_COOKIE, "", 0), sessionCookie(GATE_COOKIE, "", 0)],
+    "Set-Cookie": sessionCookie("", 0),
     "Clear-Site-Data": '"cookies", "cache", "storage"',
   });
 }
@@ -493,10 +405,7 @@ async function saveVault(env, entries) {
 async function handleVault(request, env) {
   if (!sameOrigin(request)) return json({ error: "Forbidden" }, 403);
 
-  const gate = await lookupSession(request, env, GATE_COOKIE, GATE_PREFIX);
-  if (!gate) return json({ error: "gate_required" }, 403);
-
-  const sid = await lookupSession(request, env, VAULT_COOKIE, VAULT_PREFIX);
+  const sid = await lookupSession(request, env);
   if (!sid) {
     return json({ error: "Unauthorized" }, 401, { "WWW-Authenticate": 'Bearer realm="vault"' });
   }
@@ -587,11 +496,8 @@ export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
     try {
-      if (pathname === "/api/gate" && request.method === "POST") {
-        return await handleGate(request, env);
-      }
-      if (pathname === "/api/login" && request.method === "POST") {
-        return await handleLogin(request, env);
+      if (pathname === "/api/unlock" && request.method === "POST") {
+        return await handleUnlock(request, env);
       }
       if (pathname === "/api/logout" && request.method === "POST") {
         return await handleLogout(request, env);
