@@ -21,11 +21,23 @@ const stub = {
 };
 const VAULT = { idFromName: () => "main", get: () => stub };
 
+const TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
+};
+const PUBLIC_DIR = path.join(root, "public");
+
 const ASSETS = {
   async fetch(req) {
     const p = new URL(req.url).pathname;
-    if (p === "/" || p === "/index.html") {
-      return new Response(html, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+    const rel = p === "/" || p === "/index.html" ? "index.html" : p.replace(/^\/+/, "");
+    const file = path.join(PUBLIC_DIR, rel);
+    if (file.startsWith(PUBLIC_DIR + path.sep) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+      return new Response(fs.readFileSync(file), {
+        status: 200,
+        headers: { "content-type": TYPES[path.extname(file).toLowerCase()] || "application/octet-stream" },
+      });
     }
     return new Response("nf", { status: 404, headers: { "content-type": "text/plain" } });
   },
@@ -195,6 +207,10 @@ check("legacy /api/login gone", res.status === 404, "got " + res.status);
 res = await req("/api/nope");
 check("404 on unknown api", res.status === 404, "got " + res.status);
 res = await req("/favicon.ico");
+check("ico favicon served", res.status === 200, "got " + res.status);
+res = await req("/favicon.svg");
+check("svg favicon served", res.status === 200, "got " + res.status);
+res = await req("/no-such-asset.xyz");
 check("asset 404", res.status === 404, "got " + res.status);
 res = await req("/", { method: "POST" });
 check("POST / 405", res.status === 405, "got " + res.status);
