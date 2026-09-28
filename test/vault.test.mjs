@@ -1,10 +1,15 @@
 /* Integration tests for worker.js - run with: node test/vault.test.mjs */
 import fs from "node:fs";
 import path from "node:path";
+import { register } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const html = fs.readFileSync(path.join(root, "public", "index.html"), "utf8");
+
+// worker.js imports the Workers-only `cloudflare:workers` builtin; hooks.mjs
+// maps that specifier to a shim so plain Node can load the module.
+register("./hooks.mjs", import.meta.url);
 
 /* ------------------------- Workers runtime shims ------------------------- */
 
@@ -35,7 +40,7 @@ const env = {
   PUSHTAN: "AB12CD34",
 };
 
-const { default: worker } = await import(pathToFileURL(path.join(root, "worker.js")).href);
+const { default: worker, VaultStore } = await import(pathToFileURL(path.join(root, "worker.js")).href);
 
 /* --------------------------------- harness -------------------------------- */
 
@@ -212,6 +217,24 @@ check("logout clears the cookie", setCookies.some(c => c.includes("Max-Age=0")),
 check("Clear-Site-Data", (res.headers.get("clear-site-data") || "").includes("cookies"));
 res = await req("/api/vault", {}, "10.0.0.2");
 check("session dead after lock", res.status === 401, "got " + res.status);
+
+/* --------------------- 11. real Durable Object class ---------------------- */
+
+const mem = new Map();
+const fakeCtx = {
+  storage: {
+    async get(k) { return mem.has(k) ? mem.get(k) : undefined; },
+    async put(k, v) { mem.set(k, v); },
+    async delete(k) { mem.delete(k); },
+  },
+};
+const real = new VaultStore(fakeCtx, env);
+check("VaultStore extends DurableObject (has ctx)", real.ctx === fakeCtx);
+check("VaultStore get on empty key", (await real.kvGet("missing")) === null);
+await real.kvPut("k", "v1", { expirationTtl: 60 });
+check("VaultStore put/get roundtrip", (await real.kvGet("k")) === "v1");
+await real.kvDelete("k");
+check("VaultStore delete clears", (await real.kvGet("k")) === null);
 
 console.log(fails === 0 ? "\nALL TESTS PASSED" : `\n${fails} FAILED`);
 process.exit(fails ? 1 : 0);

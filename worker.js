@@ -8,6 +8,8 @@
  *   PUSHTAN           pushTAN value, served read-only to an authenticated session
  */
 
+import { DurableObject } from "cloudflare:workers";
+
 const SESSION_COOKIE = "__Host-vault_sid";
 const SESSION_PREFIX = "sess:";
 
@@ -137,14 +139,17 @@ function clientIp(request) {
  * Single-writer key/value store backed by a SQLite Durable Object.
  * No namespace has to be provisioned: the binding is created by the
  * migration block in wrangler.toml on the first deploy.
+ *
+ * Must extend DurableObject - without it the runtime refuses RPC and every
+ * kvGet/kvPut/kvDelete call from the main Worker fails.
  */
-export class VaultStore {
+export class VaultStore extends DurableObject {
   constructor(ctx, env) {
-    this.state = ctx;
+    super(ctx, env);
   }
 
   async kvGet(key) {
-    const v = await this.state.storage.get(key);
+    const v = await this.ctx.storage.get(key);
     return v === undefined ? null : v;
   }
 
@@ -152,11 +157,11 @@ export class VaultStore {
     const o = {};
     const ttl = opts && Number(opts.expirationTtl);
     if (Number.isFinite(ttl) && ttl > 0) o.expirationTtl = Math.max(60, Math.floor(ttl));
-    await this.state.storage.put(key, value, o);
+    await this.ctx.storage.put(key, value, o);
   }
 
   async kvDelete(key) {
-    await this.state.storage.delete(key);
+    await this.ctx.storage.delete(key);
   }
 }
 
