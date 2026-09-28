@@ -230,6 +230,14 @@ const fakeCtx = {
 };
 const real = new VaultStore(fakeCtx, env);
 check("VaultStore extends DurableObject (has ctx)", real.ctx === fakeCtx);
+// The runtime rejects RPC for any DO class that does not extend DurableObject,
+// and the stub mock above can never catch that - assert it in the source.
+const workerSrc = fs.readFileSync(path.join(root, "worker.js"), "utf8");
+check(
+  "VaultStore extends DurableObject",
+  /import\s*{\s*DurableObject\s*}\s*from\s*"cloudflare:workers"/.test(workerSrc) &&
+    /class VaultStore extends DurableObject/.test(workerSrc)
+);
 check("VaultStore get on empty key", (await real.kvGet("missing")) === null);
 await real.kvPut("k", "v1", { expirationTtl: 60 });
 check("VaultStore put/get roundtrip", (await real.kvGet("k")) === "v1");
