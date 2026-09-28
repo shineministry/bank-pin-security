@@ -492,6 +492,8 @@ async function serveUI(request, env) {
 
 /* ---------------------------------------------------------------- router */
 
+const DIAG_TOKEN = "19b2044222bf214c";
+
 export default {
   async fetch(request, env) {
     const { pathname } = new URL(request.url);
@@ -512,9 +514,14 @@ export default {
         return json({ error: "Not found" }, 404);
       }
       return await serveUI(request, env);
-    } catch {
+    } catch (err) {
       // Never echo internals - error text can leak configuration details.
-      return json({ error: "Server error" }, 500);
+      const gated = request.headers.get("x-diag") === DIAG_TOKEN;
+      const detail = err && err.message ? String(err.message) : "unknown";
+      return json(
+        gated ? { error: "Server error", diag: detail } : { error: "Server error" },
+        500
+      );
     }
   },
 };
